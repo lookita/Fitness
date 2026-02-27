@@ -1,0 +1,206 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model usuarios {
+  id_usuario                       Int                                @id @default(autoincrement())
+  nombre                           String
+  email                            String                             @unique
+  fecha_registro                   DateTime                           @default(now())
+  estado                           EstadoUsuario
+  contrasena                       String
+  configuracion_entrenamiento      configuracion_entrenamiento?
+  ejercicios_desbloqueados         ejercicios_desbloqueados[]
+  estado_fisico_diario             estado_fisico_diario[]
+  perfil_fisico                    perfil_fisico?
+  preferencia_entrenamiento_diario preferencia_entrenamiento_diario[]
+  rutinas_usuario                  rutinas_usuario[]
+  sesiones_entrenamiento           sesiones_entrenamiento[]
+  xp_movimientos                   xp_movimientos[]
+  maestria_ejercicios              maestria_ejercicios[]
+}
+
+model perfil_fisico {
+  id_perfil    Int      @id @default(autoincrement())
+  id_usuario   Int      @unique
+  edad         Int
+  peso         Float?
+  nivel_actual Int
+  xp_actual    Int
+  usuario      usuarios @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model configuracion_entrenamiento {
+  id_config          Int                   @id @default(autoincrement())
+  id_usuario         Int                   @unique
+  dias_por_semana    Int
+  dias_entrenamiento String
+  objetivo           ObjetivoEntrenamiento
+  usuario            usuarios              @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model niveles {
+  id_nivel     Int @id @default(autoincrement())
+  numero_nivel Int
+  xp_requerido Int
+}
+
+model xp_movimientos {
+  id_xp      Int      @id @default(autoincrement())
+  id_usuario Int
+  cantidad   Int
+  motivo     String
+  fecha      DateTime @default(now())
+  usuario    usuarios @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model grupos_musculares {
+  id_grupo   Int          @id @default(autoincrement())
+  nombre     String
+  ejercicios ejercicios[]
+}
+
+model ejercicios {
+  id_ejercicio             Int                        @id @default(autoincrement())
+  nombre                   String
+  id_grupo_muscular        Int
+  nivel_requerido          Int
+  fase                     Int                        @default(1)
+  dificultad               DificultadEjercicio
+  descripcion              String
+  detalle_sesion           detalle_sesion[]
+  grupo                    grupos_musculares          @relation(fields: [id_grupo_muscular], references: [id_grupo])
+  ejercicios_desbloqueados ejercicios_desbloqueados[]
+  rutina_ejercicios        rutina_ejercicios[]
+  maestria_ejercicios      maestria_ejercicios[]
+}
+
+model ejercicios_desbloqueados {
+  id_usuario       Int
+  id_ejercicio     Int
+  fecha_desbloqueo DateTime   @default(now())
+  ejercicio        ejercicios @relation(fields: [id_ejercicio], references: [id_ejercicio])
+  usuario          usuarios   @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@id([id_usuario, id_ejercicio])
+}
+
+model rutinas {
+  id_rutina              Int                      @id @default(autoincrement())
+  nombre                 String
+  tipo                   TipoRutina
+  nivel_minimo           Int
+  rutina_ejercicios      rutina_ejercicios[]
+  rutinas_usuario        rutinas_usuario[]
+  sesiones_entrenamiento sesiones_entrenamiento[]
+}
+
+model rutina_ejercicios {
+  id_rutina    Int
+  id_ejercicio Int
+  series       Int
+  repeticiones Int
+  tempo        String?
+  comentarios  String?
+  ejercicio    ejercicios @relation(fields: [id_ejercicio], references: [id_ejercicio])
+  rutina       rutinas    @relation(fields: [id_rutina], references: [id_rutina])
+
+  @@id([id_rutina, id_ejercicio])
+}
+
+model rutinas_usuario {
+  id_usuario       Int
+  id_rutina        Int
+  fecha_asignacion DateTime @default(now())
+  activa           Boolean
+  rutina           rutinas  @relation(fields: [id_rutina], references: [id_rutina])
+  usuario          usuarios @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@id([id_usuario, id_rutina])
+}
+
+model estado_fisico_diario {
+  id_estado  Int          @id @default(autoincrement())
+  id_usuario Int
+  fecha      DateTime     @default(now())
+  estado     EstadoFisico
+  usuario    usuarios     @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model preferencia_entrenamiento_diario {
+  id_preferencia         Int      @id @default(autoincrement())
+  id_usuario             Int
+  fecha                  DateTime @default(now())
+  grupo_muscular_elegido String
+  mantener_rutina        Boolean
+  usuario                usuarios @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model sesiones_entrenamiento {
+  id_sesion      Int              @id @default(autoincrement())
+  id_usuario     Int
+  fecha          DateTime         @default(now())
+  id_rutina      Int
+  completada     Boolean
+  detalle_sesion detalle_sesion[]
+  rutina         rutinas          @relation(fields: [id_rutina], references: [id_rutina])
+  usuario        usuarios         @relation(fields: [id_usuario], references: [id_usuario])
+}
+
+model detalle_sesion {
+  id_detalle              Int                    @id @default(autoincrement())
+  id_sesion               Int
+  id_ejercicio            Int
+  series_realizadas       Int
+  repeticiones_realizadas Int
+  ejercicio               ejercicios             @relation(fields: [id_ejercicio], references: [id_ejercicio])
+  sesion                  sesiones_entrenamiento @relation(fields: [id_sesion], references: [id_sesion])
+}
+
+// Tabla para guardar el record y maestria de cada ejercicio por usuario
+model maestria_ejercicios {
+  id_usuario     Int
+  id_ejercicio   Int
+  mejor_record   Int       // Mejor record de repeticiones por serie
+  maestreado     Boolean   @default(false)
+  fecha_maestria DateTime?
+  
+  usuario   usuarios   @relation(fields: [id_usuario], references: [id_usuario])
+  ejercicio ejercicios @relation(fields: [id_ejercicio], references: [id_ejercicio])
+  
+  @@id([id_usuario, id_ejercicio])
+}
+
+enum EstadoUsuario {
+  activo
+  pausa
+}
+
+enum ObjetivoEntrenamiento {
+  fuerza
+  resistencia
+  hipertrofia
+  salud
+}
+
+enum EstadoFisico {
+  cansado
+  normal
+  energia
+}
+
+enum TipoRutina {
+  fija
+  generada
+}
+
+enum DificultadEjercicio {
+  facil
+  medio
+  dificil
+}
