@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { UsuariosService } from '../services/usuarios.services'
-import Card from '../components/Card'
 import Input from '../components/Input'
 import Boton from '../components/Boton'
 
@@ -26,34 +25,33 @@ export default function Login() {
   }
 
   return (
-    <Card title="INICIAR SESIÓN">
-      <form onSubmit={handleSubmit}>
-        <Input
-          label="Email"
-          type="email"
-          placeholder="ejemplo@fitness.com"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-        />
-
-        <Input
-          label="Contraseña"
-          type="password"
-          placeholder="********"
-          value={contrasena}
-          onChange={e => setContrasena(e.target.value)}
-          required
-        />
-
-        <Boton type="submit">Entrar</Boton>
-
-        {error && <p className="error-message">{error}</p>}
-      </form>
-
-      <p style={{ marginTop: '1.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        ¿No tienes cuenta? <Link to="/Register" className="auth-link">Regístrate</Link>
-      </p>
-    </Card>
-  )
+    <div className="fade-in" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw' }}>
+      <div className="glass" style={{ padding: '2.5rem', borderRadius: '24px', width: '100%', maxWidth: '400px', textAlign: 'center' }}>
+        <h1 className="text-gradient" style={{ fontSize: '2rem', marginBottom: '2rem' }}>BIENVENIDO</h1>
+        <form onSubmit={handleSubmit}>
+          <Input
+            label="Email"
+            type="email"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <Input
+            label="Contraseña"
+            type="password"
+            placeholder="••••••••"
+            value={contrasena}
+            onChange={e => setContrasena(e.target.value)}
+            required
+          />
+          <Boton type="submit" style={{ marginTop: '1rem' }}>Iniciar Sesión</Boton>
+          {error && <p className="error-message">{error}</p>}
+        </form>
+        <p style={{ marginTop: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+          ¿No tienes cuenta? <Link to="/register" className="auth-link">Regístrate</Link>
+        </p>
+      </div>
+    </div>
+  );
 }

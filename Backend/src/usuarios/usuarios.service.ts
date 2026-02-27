@@ -3,6 +3,7 @@ import {
   NotFoundException,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PerfilFisicoService } from '../perfil-fisico/perfil-fisico.service';
@@ -16,16 +17,14 @@ export class UsuariosService {
     private rutinasService: RutinasService,
   ) {}
 
-  /// Crear un usuario nuevo + perfil físico automático
-  async crearUsuario(data: {
-    nombre: string;
-    email: string;
-    contrasena: string;
-  }) {
-    // 1️⃣ Crear el usuario
+  // Crear un usuario nuevo + perfil físico automático
+  async crearUsuario(data: { nombre: string; email: string; contrasena: string }) {
+    if (!data.nombre || !data.email || !data.contrasena) {
+      throw new BadRequestException('Campos requeridos: nombre, email, contrasena');
+    }
+
     let usuario;
     try {
-      // @ts-ignore
       usuario = await (this.prisma as any).usuarios.create({
         data: {
           nombre: data.nombre,
@@ -35,60 +34,58 @@ export class UsuariosService {
         },
       });
     } catch (error) {
-      if (error.code === 'P2002') {
+      // Manejamos tanto errores de Prisma (P2002) como de PostgreSQL (23505)
+      if (error.code === 'P2002' || error.code === '23505') {
         throw new ConflictException('El email ya está registrado');
       }
+      console.error('Error al crear usuario:', error);
       throw error;
     }
 
-    // 2️⃣ Crear automáticamente el perfil físico
-    // @ts-ignore
-    await (this.prisma as any).perfil_fisico.create({
-      data: {
-        id_usuario: usuario.id_usuario,
-        edad: 18,
-        peso: null,
-        nivel_actual: 1,
-        xp_actual: 0,
-      },
-    });
+    if (!usuario || !usuario.id_usuario || isNaN(usuario.id_usuario)) {
+      throw new BadRequestException('Registro inválido: ID de usuario no numérico');
+    }
 
-    // 3️⃣ Devolver el usuario creado
+    try {
+      await (this.prisma as any).perfil_fisico.create({
+        data: {
+          id_usuario: usuario.id_usuario,
+          edad: 18,
+          peso: null,
+          nivel_actual: 1,
+          xp_actual: 0,
+        },
+      });
+    } catch (error) {
+      console.error('Error al crear perfil físico:', error);
+      // No lanzamos error aquí para que al menos el usuario esté creado, 
+      // pero podríamos querer manejarlo de otra forma.
+    }
+
     return usuario;
   }
 
-  // Obtener todos los usuarios
   async listarUsuarios() {
-    // @ts-ignore
     return (this.prisma as any).usuarios.findMany();
   }
 
-  // Obtener un usuario por ID
   async obtenerUsuarioPorId(id: number) {
-    // @ts-ignore
-    return (this.prisma as any).usuarios.findUnique({
-      where: { id_usuario: id },
-    });
+    if (!id || isNaN(id)) {
+      throw new BadRequestException('El ID debe ser numérico');
+    }
+    return (this.prisma as any).usuarios.findUnique({ where: { id_usuario: id } });
   }
 
   async login(data: { email: string; contrasena: string }) {
-    // 1️⃣ Buscar usuario por email
-    // @ts-ignore
     const usuario = await (this.prisma as any).usuarios.findUnique({
       where: { email: data.email },
     });
 
-    // 2️⃣ Si no existe
-    if (!usuario) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-
-    // 3️⃣ Comparar contraseña
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
     if (usuario.contrasena !== data.contrasena) {
       throw new UnauthorizedException('Contraseña incorrecta');
     }
 
-    // 4️⃣ Login correcto
     return {
       mensaje: 'Login exitoso',
       usuario: {
@@ -99,24 +96,19 @@ export class UsuariosService {
     };
   }
 
-  // 🎯 Obtener dashboard completo del usuario
   async obtenerDashboard(idUsuario: number) {
-    // 1. Obtener perfil físico (nivel, XP)
-    const perfil = await this.perfilService.obtenerPorUsuario(idUsuario);
+    if (!idUsuario || isNaN(idUsuario)) {
+      throw new UnauthorizedException('SERVICIO: ID de usuario inválido para el dashboard.');
+    }
 
-    // 2. Obtener rutinas activas
+    const perfil = await this.perfilService.obtenerPorUsuario(idUsuario);
     const rutinas = await this.rutinasService.obtenerRutinasUsuario(idUsuario);
 
-    // 3. Obtener progreso de ejercicios (maestría)
-    // @ts-ignore
     const progreso = await (this.prisma as any).maestria_ejercicios.findMany({
       where: { id_usuario: idUsuario },
-      include: {
-        ejercicio: true, // Incluir datos del ejercicio
-      },
+      include: { ejercicio: true },
     });
 
-    // 4. Devolver todo junto
     return {
       perfil: {
         nivel: perfil?.nivel_actual || 1,
@@ -124,7 +116,7 @@ export class UsuariosService {
         edad: perfil?.edad,
         peso: perfil?.peso,
       },
-      rutinas: rutinas,
+      rutinas,
       progreso: (progreso || []).map((p: any) => ({
         ejercicio: p.ejercicio?.nombre || 'Ejercicio',
         mejor_record: p.mejor_record,

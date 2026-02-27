@@ -62,14 +62,9 @@ export class RutinasService {
       }
     }
 
-    // @ts-ignore
-    await (this.prisma as any).rutinas_usuario.updateMany({
-      where: { id_usuario: idUsuario, activa: true },
-      data: { activa: false },
-    });
-
+    // Buscar rutinas del nivel/fase ANTES de desactivar las actuales
     const nombreFiltro = `Nivel ${nivel} - Fase ${fase}`;
-    
+
     // @ts-ignore
     const rutinasNivel = await (this.prisma as any).rutinas.findMany({
       where: {
@@ -83,6 +78,13 @@ export class RutinasService {
     if (rutinasNivel.length === 0) {
       throw new NotFoundException(`No se encontraron rutinas para Nivel ${nivel} Fase ${fase}`);
     }
+
+    // Solo desactivamos las viejas SI encontramos las nuevas (evita dejar al usuario sin rutinas)
+    // @ts-ignore
+    await (this.prisma as any).rutinas_usuario.updateMany({
+      where: { id_usuario: idUsuario, activa: true },
+      data: { activa: false },
+    });
 
     for (const rutina of rutinasNivel) {
       // @ts-ignore
@@ -103,6 +105,7 @@ export class RutinasService {
     }
 
     return { mensaje: `Se han asignado ${rutinasNivel.length} rutinas (A/B/C) correspondientes a la etapa actual.` };
+
   }
 
   // Obtener detalle de una rutina específica para el usuario

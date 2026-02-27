@@ -1,10 +1,4 @@
-//Este archivo usuarios.controller.ts es el controlador de los usuarios
-//es decir, aqui se maneja la logica de los usuarios
-//es decir, aqui se maneja todo lo que tiene que ver con los usuarios
-//que viene desde el frontend, del archivo login.tsx
-//todo viene desde login.tsx y se envia al backend
-
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
 import { Session } from '@nestjs/common';
 
@@ -12,74 +6,97 @@ import { Session } from '@nestjs/common';
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
-  //POST QUIERE DECIR QUE VAMOS A RECIBIR DATOS DEL FRONTEND
-  // POST /usuarios
   @Post()
   crear(@Body() body: any) {
-    console.log('BODY RECIBIDO 👉', body);
+    if (!body.nombre || !body.email || !body.contrasena) {
+      throw new BadRequestException('Campos requeridos: nombre, email, contrasena');
+    }
     return this.usuariosService.crearUsuario(body);
   }
 
-  //GET QUIERE DECIR QUE VAMOS A CONSEGUIR DATOS DEL FRONTEND
-  // GET /usuarios
   @Get()
   listarUsuarios() {
     return this.usuariosService.listarUsuarios();
   }
 
-  //GET /USUARIOS ID: QUIERE DECIR QUE VAMOS A CONSEGUIR DATOS DEL FRONTEND PERO CON UN ID
-  // GET /usuarios/:id
-  @Get(':id')
-  obtenerUsuario(@Param('id') id: string) {
-    return this.usuariosService.obtenerUsuarioPorId(Number(id));
-  }
-
-  //   @Post('login') QUIERE DECIR QUE RECIBIMOS DATOS DEL LOGIN DESDE EL FORMULARIO
   @Post('login')
   async login(
     @Body() body: { email: string; contrasena: string },
     @Session() session: Record<string, any>,
   ) {
-    // aca se ejecuta la logica de login
+    console.log('➡️ Intento de login:', body.email);
     const result = await this.usuariosService.login(body);
+    
+    if (!result.usuario || !result.usuario.id_usuario) {
+      console.error('❌ Error: El servicio de login no devolvió un ID de usuario válido');
+      throw new BadRequestException('Error interno al procesar el login');
+    }
 
-    // 👈 Guardamos los datos del usuario en la sesión de Redis
     session.usuario = {
-      id: result.usuario.id_usuario,
+      id: Number(result.usuario.id_usuario),
       nombre: result.usuario.nombre,
       email: result.usuario.email,
     };
-
-    return result;
+    
+    // Forzamos el guardado en Redis antes de responder
+    return new Promise((resolve, reject) => {
+      session.save((err) => {
+        if (err) {
+          console.error('❌ Error guardando sesión en Redis:', err);
+          return reject(new BadRequestException('Error al persistir la sesión'));
+        }
+        console.log('✅ Sesión creada y guardada para ID:', session.usuario.id);
+        resolve(result);
+      });
+    });
   }
 
-  // Endpoint para ver mi propio perfil (basado en la sesión)
+  @Get('dashboard')
+  obtenerDashboard(@Session() session: Record<string, any>) {
+    if (!session.usuario) {
+      console.warn('⚠️ DASHBOARD: No se encontró sesión del usuario');
+      throw new UnauthorizedException('No hay sesión activa. Por favor, inicie sesión.');
+    }
+
+    if (!session.usuario.id || isNaN(Number(session.usuario.id))) {
+      console.warn('⚠️ DASHBOARD: ID de usuario inválido en sesión:', session.usuario);
+      throw new UnauthorizedException('Sus datos de sesión son corruptos. Por favor, reingrese.');
+    }
+
+    const idUsuario = Number(session.usuario.id);
+    return this.usuariosService.obtenerDashboard(idUsuario);
+  }
+
+  @Get('check-session')
+  verificarSesion(@Session() session: Record<string, any>) {
+    if (!session.usuario || !session.usuario.id) {
+      return { autenticado: false };
+    }
+    return { autenticado: true, usuario: session.usuario };
+  }
+
   @Get('perfil/yo')
   obtenerPerfil(@Session() session: Record<string, any>) {
     if (!session.usuario) {
-      return { mensaje: 'No hay sesión activa' };
+      throw new UnauthorizedException('Debe iniciar sesión para acceder al dashboard');
     }
     return session.usuario;
   }
 
-  // Endpoint para cerrar sesión
+  @Get(':id')
+  obtenerUsuario(@Param('id') id: string) {
+    const idNum = Number(id);
+    if (isNaN(idNum)) {
+      throw new BadRequestException('El ID debe ser numérico');
+    }
+    return this.usuariosService.obtenerUsuarioPorId(idNum);
+  }
+
   @Post('logout')
   logout(@Session() session: Record<string, any>) {
     session.destroy((err) => {
       if (err) console.error('Error al cerrar sesión:', err);
     });
     return { mensaje: 'Sesión cerrada correctamente' };
-  }
-
-  // 🎯 Endpoint para obtener TODO el dashboard del usuario
-  // Devuelve: perfil (nivel, XP), rutinas activas y progreso de ejercicios
-  @Get('dashboard')
-  obtenerDashboard(@Session() session: Record<string, any>) {
-    if (!session.usuario) {
-      return { error: 'No hay sesión activa' };
-    }
-
-    const idUsuario = session.usuario.id;
-    return this.usuariosService.obtenerDashboard(idUsuario);
   }
 }

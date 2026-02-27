@@ -2,12 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="" href="../Frontend/src/assets/360_F_365117335_tIrRweXm9Lo98gohhKmzAkutB7eJ4ROn.jpg" />
+    <script>
+      // ⚠️ Script de limpieza: Elimina Service Workers de proyectos anteriores que interfieren con este puerto
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) {
+            registration.unregister().then(() => {
+              console.log('✅ Service Worker de otro proyecto eliminado con éxito');
+              if (window.location.search !== '?cleaned') {
+                window.location.search = '?cleaned'; // Recargar para limpiar cache
+              }
+            });
+          }
+        });
+      }
+    </script>
+    <link rel="icon" type="image/jpeg" href="/src/assets/360_F_365117335_tIrRweXm9Lo98gohhKmzAkutB7eJ4ROn.jpg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Calistenia</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">Cargando aplicación...</div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

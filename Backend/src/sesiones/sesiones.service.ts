@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PerfilFisicoService } from '../perfil-fisico/perfil-fisico.service';
 import { RegistrarSesionDto } from './dto/registrar-sesion.dto';
-import { RutinasService } from 'src/rutinas/rutinas.service';
+import { RutinasService } from '../rutinas/rutinas.service';
 
 // 🎯 Este servicio maneja todo lo relacionado con las sesiones de entrenamiento
 @Injectable()
@@ -112,8 +112,10 @@ export class SesionesService {
       });
     }
 
-    // PASO 8: Sumar la XP total al perfil del usuario
-    await this.perfilService.sumarXP(idUsuario, xpTotal);
+    // PASO 8: Sumar la XP total al perfil del usuario (solo si ganó algo)
+    if (xpTotal > 0) {
+      await this.perfilService.sumarXP(idUsuario, xpTotal);
+    }
 
     // PASO 9 (NUEVO): Verificar si debe avanzar de fase automáticamente
     const perfilActualizado = await this.perfilService.obtenerPorUsuario(idUsuario);
@@ -125,7 +127,8 @@ export class SesionesService {
         await this.rutinasService.asignarRutinasPorNivelYFase(idUsuario, nivelActual, 2);
         console.log(`Usuario ${idUsuario} avanzó a Nivel ${nivelActual} Fase 2`);
       } catch (e) {
-        // Ya está en fase 2 o no hay rutinas para esa fase
+        // Ya está en fase 2, no hay rutinas disponibles para esa fase, o hubo un error inesperado
+        console.warn(`[SesionesService] No se pudo avanzar de fase para usuario ${idUsuario}:`, e);
       }
     }
 
