@@ -58,6 +58,89 @@ export class PerfilFisicoService {
     return { nuevoXP, nuevoNivel };
   }
 
+  // 🎯 Avanzar en el ciclo de entrenamiento (Semana -> Fase -> Nivel) con Validación de XP
+  async avanzarCiclo(idUsuario: number) {
+    const perfil = await this.obtenerPorUsuario(idUsuario);
+    if (!perfil) throw new Error('Perfil no encontrado');
+
+    const nivelActual = perfil.nivel_actual;
+    const faseActual = perfil.fase_actual;
+    const semanaActual = perfil.semana_actual;
+
+    // 1. Determinar el rango de XP del nivel actual
+    // @ts-ignore
+    const nivelActualData = await (this.prisma as any).niveles.findFirst({
+      where: { numero_nivel: nivelActual }
+    });
+    // @ts-ignore
+    const nivelSiguienteData = await (this.prisma as any).niveles.findFirst({
+      where: { numero_nivel: nivelActual + 1 }
+    });
+
+    const xpBase = nivelActualData?.xp_requerido || 0;
+    const xpMeta = nivelSiguienteData?.xp_requerido || (xpBase + 1000); // Default si no hay nivel sig
+    const xpNecesariaEnNivel = xpMeta - xpBase;
+    const xpGanadaEnNivel = perfil.xp_actual - xpBase;
+
+    // 2. Definir umbral según la posición en el mes (4 semanas en total)
+    // Posición global: (Fase-1)*2 + Semana
+    // Semana 1 (Global 1) -> 25%
+    // Semana 2 (Global 2) -> 50% (Fin Fase 1)
+    // Semana 3 (Global 3) -> 75%
+    // Semana 4 (Global 4) -> 100% (Fin Nivel)
+    const posicionGlobal = (faseActual - 1) * 2 + semanaActual;
+    const porcentajeRequerido = posicionGlobal * 0.25;
+    const xpMinimaRequerida = xpBase + (xpNecesariaEnNivel * porcentajeRequerido);
+
+    if (perfil.xp_actual < xpMinimaRequerida) {
+      const faltante = Math.ceil(xpMinimaRequerida - perfil.xp_actual);
+      const semanaDestino = posicionGlobal + 1;
+      const faseDestino = semanaDestino > 2 ? 2 : 1;
+      throw new Error(`Progreso insuficiente. Necesitas alcanzar el ${posicionGlobal * 25}% de XP del nivel (te faltan ${faltante} XP) para pasar a la Semana ${semanaDestino} (${faseDestino === 2 && semanaDestino === 3 ? 'Inicio de Fase 2' : 'Fase ' + faseDestino}).`);
+    }
+
+    // 3. Calcular nueva posición
+    let nuevaSemana = semanaActual + 1;
+    let nuevaFase = faseActual;
+    let nuevoNivel = nivelActual;
+
+    if (nuevaSemana > 2) {
+      nuevaSemana = 1;
+      nuevaFase += 1;
+    }
+
+    if (nuevaFase > 2) {
+      nuevaFase = 1;
+      nuevoNivel += 1;
+    }
+
+    // 4. Actualizar el perfil
+    // @ts-ignore
+    await (this.prisma as any).perfil_fisico.update({
+      where: { id_usuario: idUsuario },
+      data: {
+        semana_actual: nuevaSemana,
+        fase_actual: nuevaFase,
+        nivel_actual: nuevoNivel
+      }
+    });
+
+    // 5. Reseteo de maestría si cambia la Fase o el Nivel
+    if (nuevaSemana === 1) {
+      // @ts-ignore
+      await (this.prisma as any).maestria_ejercicios.deleteMany({
+        where: { id_usuario: idUsuario }
+      });
+    }
+
+    return { 
+      mensaje: `¡Progreso validado! Has avanzado a ${nuevoNivel !== nivelActual ? 'Nivel ' + nuevoNivel : 'Fase ' + nuevaFase + ' - Semana ' + nuevaSemana}`,
+      nuevaSemana, 
+      nuevaFase, 
+      nuevoNivel 
+    };
+  }
+
   // 🎯 Función para verificar si todos los ejercicios de una fase están maestreados
   async verificarMaestriaFase(
     idUsuario: number,

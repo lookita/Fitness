@@ -8,6 +8,8 @@ export interface Usuario {
 
 export interface PerfilFisico {
   nivel: number;
+  fase: number;
+  semana: number;
   xp: number;
   edad?: number;
   peso?: number;
@@ -20,6 +22,7 @@ export interface Ejercicio {
   dificultad: 'facil' | 'medio' | 'dificil';
   nivel_requerido: number;
   fase: number;
+  es_tiempo?: boolean;
   id_grupo?: number;
   grupo?: {
     id_grupo: number;

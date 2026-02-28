@@ -30,9 +30,11 @@ model perfil_fisico {
   id_usuario   Int      @unique
   edad         Int
   peso         Float?
-  nivel_actual Int
-  xp_actual    Int
-  usuario      usuarios @relation(fields: [id_usuario], references: [id_usuario])
+  nivel_actual  Int
+  fase_actual   Int      @default(1)
+  semana_actual  Int      @default(1)
+  xp_actual     Int
+  usuario       usuarios @relation(fields: [id_usuario], references: [id_usuario])
 }
 
 model configuracion_entrenamiento {
@@ -73,6 +75,7 @@ model ejercicios {
   fase                     Int                        @default(1)
   dificultad               DificultadEjercicio
   descripcion              String
+  es_tiempo                Boolean                    @default(false)
   detalle_sesion           detalle_sesion[]
   grupo                    grupos_musculares          @relation(fields: [id_grupo_muscular], references: [id_grupo])
   ejercicios_desbloqueados ejercicios_desbloqueados[]
@@ -167,6 +170,7 @@ model maestria_ejercicios {
   id_usuario     Int
   id_ejercicio   Int
   mejor_record   Int       // Mejor record de repeticiones por serie
+  mejor_record_volumen Int?   @default(0) // Mejor volumen total (series * reps)
   maestreado     Boolean   @default(false)
   fecha_maestria DateTime?
   

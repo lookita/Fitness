@@ -40,4 +40,9 @@ export const UsuariosService = {
   logout() {
     return api.post('/usuarios/logout');
   },
+
+  // ⏩ Avanzar manualmente a la siguiente semana/fase
+  async avanzarSemana() {
+    return api.post('/perfil-fisico/avanzar-semana');
+  }
 }

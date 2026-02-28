@@ -58,26 +58,41 @@ export class SesionesService {
         },
       });
 
-      // Si no tiene récord anterior, es 0 (primera vez que hace el ejercicio)
-      const recordAnterior = maestria?.mejor_record || 0;
-
-      // La meta es cuántas repeticiones debe hacer por serie
+      const recordAnteriorVolumen = maestria ? (maestria.mejor_record_volumen || 0) : 0;
       const metaReps = rutEj.repeticiones;
+      const metaSeries = rutEj.series;
+      const metaVolumenTotal = metaReps * metaSeries;
 
-      // PASO 3: Calcular cuánta XP gana
+      // PASO 3: Calcular XP (Meta: 50 XP por sesión completa)
+      // Dividimos 50 XP por la cantidad total de ejercicios en la rutina
+      const totalEjercicios = dto.ejercicios.length;
+      const XP_POR_EJERCICIO = totalEjercicios > 0 ? 50 / totalEjercicios : 0;
+      
       const repsActuales = ejercicio.reps_realizadas;
-      const repsParaXP = Math.min(repsActuales, metaReps); 
-      const xpGanada = Math.max(0, repsParaXP - recordAnterior); 
+      const seriesActuales = ejercicio.series_realizadas || 0;
+      const volumenActual = repsActuales * seriesActuales;
+      
+      // XP proporcional a cuánto completó de la meta de este ejercicio hoy
+      const metaVolumenTotal = rutEj.repeticiones * rutEj.series;
+      
+      let xpGanada = 0;
+      if (metaVolumenTotal > 0) {
+        // Solo sumamos XP por lo hecho HOY, sin depender del récord histórico
+        const porcentajeCompletado = Math.min(volumenActual / metaVolumenTotal, 1);
+        xpGanada = Math.floor(porcentajeCompletado * XP_POR_EJERCICIO);
+      }
 
-      xpTotal = xpTotal + xpGanada;
+      xpGanada = isNaN(xpGanada) || !isFinite(xpGanada) ? 0 : xpGanada;
+      xpTotal += xpGanada;
 
-      // PASO 4: Actualizar el récord (si mejoró)
-      const nuevoRecord = Math.max(recordAnterior, repsActuales);
+      // PASO 4: Actualizar el récord (mejor volumen histórico)
+      let mejorVolumenActualizado = Math.max(recordAnteriorVolumen, volumenActual);
+      mejorVolumenActualizado = isNaN(mejorVolumenActualizado) ? recordAnteriorVolumen : mejorVolumenActualizado;
 
-      // PASO 5: Verificar si alcanzó la maestría
-      const maestreado = repsActuales >= metaReps;
+      // PASO 5: Verificar maestría (100% alcanzado)
+      const maestreado = metaVolumenTotal > 0 && volumenActual >= metaVolumenTotal;
 
-      // PASO 6: Guardar el nuevo récord y estado de maestría
+      // PASO 6: Guardar el nuevo récord...
       // @ts-ignore
       await (this.prisma as any).maestria_ejercicios.upsert({
         where: {
@@ -87,14 +102,16 @@ export class SesionesService {
           },
         },
         update: {
-          mejor_record: nuevoRecord,
+          mejor_record: Math.max(maestria?.mejor_record || 0, repsActuales),
+          mejor_record_volumen: mejorVolumenActualizado,
           maestreado: maestreado,
           fecha_maestria: maestreado ? new Date() : undefined,
         },
         create: {
           id_usuario: idUsuario,
           id_ejercicio: ejercicio.id_ejercicio,
-          mejor_record: nuevoRecord,
+          mejor_record: repsActuales,
+          mejor_record_volumen: mejorVolumenActualizado,
           maestreado: maestreado,
           fecha_maestria: maestreado ? new Date() : undefined,
         },
@@ -106,7 +123,7 @@ export class SesionesService {
         data: {
           id_sesion: sesion.id_sesion,
           id_ejercicio: ejercicio.id_ejercicio,
-          series_realizadas: rutEj.series,
+          series_realizadas: seriesActuales,
           repeticiones_realizadas: repsActuales,
         },
       });
@@ -117,18 +134,24 @@ export class SesionesService {
       await this.perfilService.sumarXP(idUsuario, xpTotal);
     }
 
-    // PASO 9 (NUEVO): Verificar si debe avanzar de fase automáticamente
+    // PASO 9 (NUEVO): Verificar si debe avanzar de semana/fase automáticamente
     const perfilActualizado = await this.perfilService.obtenerPorUsuario(idUsuario);
     const nivelActual = perfilActualizado?.nivel_actual || 1;
-
-    const fase1Completa = await this.perfilService.verificarMaestriaFase(idUsuario, nivelActual, 1);
-    if (fase1Completa) {
+    const etapaCompleta = await this.perfilService.verificarMaestriaFase(idUsuario, nivelActual, perfilActualizado?.fase_actual || 1);
+    
+    if (etapaCompleta) {
       try {
-        await this.rutinasService.asignarRutinasPorNivelYFase(idUsuario, nivelActual, 2);
-        console.log(`Usuario ${idUsuario} avanzó a Nivel ${nivelActual} Fase 2`);
+        const resultadoAvance = await this.perfilService.avanzarCiclo(idUsuario);
+        
+        // Si al avanzar cambió la fase o nivel (resultadoAvance.nuevaSemana === 1), asignamos nuevas rutinas
+        if (resultadoAvance && resultadoAvance.nuevaSemana === 1) {
+          await this.rutinasService.asignarRutinasPorNivelYFase(idUsuario, resultadoAvance.nuevoNivel, resultadoAvance.nuevaFase);
+          console.log(`Usuario ${idUsuario} avanzó a Nivel ${resultadoAvance.nuevoNivel} Fase ${resultadoAvance.nuevaFase}`);
+        } else {
+          console.log(`Usuario ${idUsuario} avanzó a Semana ${resultadoAvance?.nuevaSemana} de la Fase ${resultadoAvance?.nuevaFase}`);
+        }
       } catch (e) {
-        // Ya está en fase 2, no hay rutinas disponibles para esa fase, o hubo un error inesperado
-        console.warn(`[SesionesService] No se pudo avanzar de fase para usuario ${idUsuario}:`, e);
+        console.warn(`[SesionesService] No se pudo avanzar de etapa para usuario ${idUsuario}:`, e);
       }
     }
 

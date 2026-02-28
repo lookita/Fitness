@@ -18,6 +18,9 @@ async function main() {
   console.log('🌱 Iniciando seeding...');
 
   // ─── 1. LIMPIAR DATOS VIEJOS (en orden para evitar errores de FK) ───
+  await (prisma as any).detalle_sesion.deleteMany();
+  await (prisma as any).sesiones_entrenamiento.deleteMany();
+  await (prisma as any).maestria_ejercicios.deleteMany();
   await (prisma as any).rutina_ejercicios.deleteMany();
   await (prisma as any).rutinas_usuario.deleteMany();
   await (prisma as any).rutinas.deleteMany();
@@ -30,15 +33,15 @@ async function main() {
   // xp_requerido = cuánta XP total necesita el usuario para llegar a ese nivel
   const niveles = [
     { numero_nivel: 1, xp_requerido: 0 },
-    { numero_nivel: 2, xp_requerido: 100 },
-    { numero_nivel: 3, xp_requerido: 250 },
-    { numero_nivel: 4, xp_requerido: 500 },
-    { numero_nivel: 5, xp_requerido: 800 },
-    { numero_nivel: 6, xp_requerido: 1200 },
-    { numero_nivel: 7, xp_requerido: 1700 },
-    { numero_nivel: 8, xp_requerido: 2300 },
-    { numero_nivel: 9, xp_requerido: 3000 },
-    { numero_nivel: 10, xp_requerido: 4000 },
+    { numero_nivel: 2, xp_requerido: 1000 },
+    { numero_nivel: 3, xp_requerido: 2000 },
+    { numero_nivel: 4, xp_requerido: 3000 },
+    { numero_nivel: 5, xp_requerido: 4000 },
+    { numero_nivel: 6, xp_requerido: 5000 },
+    { numero_nivel: 7, xp_requerido: 6000 },
+    { numero_nivel: 8, xp_requerido: 7000 },
+    { numero_nivel: 9, xp_requerido: 8000 },
+    { numero_nivel: 10, xp_requerido: 9000 },
   ];
   for (const nivel of niveles) {
     await (prisma as any).niveles.create({ data: nivel });
@@ -62,12 +65,12 @@ async function main() {
     { nombre: 'Flexiones de rodillas', id_grupo_muscular: gruposCreados['Empuje'], nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Flexiones con apoyo en rodillas. Mantén la espalda recta.' },
     { nombre: 'Sentadilla con peso corporal', id_grupo_muscular: gruposCreados['Piernas'], nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Sentadilla básica. Baja hasta que los muslos estén paralelos al suelo.' },
     { nombre: 'Remo con silla', id_grupo_muscular: gruposCreados['Tirón'], nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Tirón horizontal usando una silla o mesa firme.' },
-    { nombre: 'Plancha 20s', id_grupo_muscular: gruposCreados['Core'], nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Mantén el cuerpo recto durante 20 segundos.' },
+    { nombre: 'Plancha 20s', id_grupo_muscular: gruposCreados['Core'], nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Mantén el cuerpo recto durante 20 segundos.', es_tiempo: true },
     // NIVEL 1 - FASE 2
     { nombre: 'Flexiones completas', id_grupo_muscular: gruposCreados['Empuje'], nivel_requerido: 1, fase: 2, dificultad: 'medio', descripcion: 'Flexiones con el cuerpo completamente extendido, pecho al suelo.' },
     { nombre: 'Sentadilla profunda', id_grupo_muscular: gruposCreados['Piernas'], nivel_requerido: 1, fase: 2, dificultad: 'medio', descripcion: 'Sentadilla con mayor rango de movimiento.' },
     { nombre: 'Remo invertido', id_grupo_muscular: gruposCreados['Tirón'], nivel_requerido: 1, fase: 2, dificultad: 'medio', descripcion: 'Tirón horizontal bajo una mesa, cuerpo recto.' },
-    { nombre: 'Plancha 40s', id_grupo_muscular: gruposCreados['Core'], nivel_requerido: 1, fase: 2, dificultad: 'medio', descripcion: 'Mantén el cuerpo recto durante 40 segundos.' },
+    { nombre: 'Plancha 40s', id_grupo_muscular: gruposCreados['Core'], nivel_requerido: 1, fase: 2, dificultad: 'medio', descripcion: 'Mantén el cuerpo recto durante 40 segundos.', es_tiempo: true },
     // NIVEL 2 - FASE 1
     { nombre: 'Flexiones diamante', id_grupo_muscular: gruposCreados['Empuje'], nivel_requerido: 2, fase: 1, dificultad: 'medio', descripcion: 'Flexiones con manos en forma de diamante, enfocadas en tríceps.' },
     { nombre: 'Zancadas alternadas', id_grupo_muscular: gruposCreados['Piernas'], nivel_requerido: 2, fase: 1, dificultad: 'medio', descripcion: 'Lunges alternando piernas.' },
@@ -79,39 +82,59 @@ async function main() {
   }
   console.log('✅ Ejercicios creados');
 
-  // ─── 5. CREAR RUTINAS (A, B, C para Nivel 1 Fase 1) ───
-  const rutinaA = await (prisma as any).rutinas.create({
-    data: { nombre: 'Nivel 1 - Fase 1 - Rutina A', tipo: 'fija', nivel_minimo: 1 },
-  });
-  const rutinaB = await (prisma as any).rutinas.create({
-    data: { nombre: 'Nivel 1 - Fase 1 - Rutina B', tipo: 'fija', nivel_minimo: 1 },
-  });
-  const rutinaC = await (prisma as any).rutinas.create({
-    data: { nombre: 'Nivel 1 - Fase 1 - Rutina C', tipo: 'fija', nivel_minimo: 1 },
-  });
+  // ─── 5. CREAR RUTINAS SEMANALES (Nivel 1 y 2, Fases 1 y 2) ───
+  const diasSemana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+  
+  const nivelesAFomentar = [1, 2];
+  const fasesAFomentar = [1, 2];
 
-  // ─── 6. ASIGNAR EJERCICIOS A LAS RUTINAS ───
-  // Rutina A: Empuje + Core (Flexiones de rodillas + Plancha 20s)
-  const [flex_rod, sent_pc, remo_silla, plancha_20] = ejerciciosCreados;
-  await (prisma as any).rutina_ejercicios.create({
-    data: { id_rutina: rutinaA.id_rutina, id_ejercicio: flex_rod, series: 3, repeticiones: 8, tempo: '3-1-2', comentarios: 'Baja lento 3 seg, pausa 1 seg, sube 2 seg' },
-  });
-  await (prisma as any).rutina_ejercicios.create({
-    data: { id_rutina: rutinaA.id_rutina, id_ejercicio: plancha_20, series: 3, repeticiones: 1, tempo: null, comentarios: '20 segundos por serie, descanso 60s' },
-  });
-  // Rutina B: Piernas (Sentadilla)
-  await (prisma as any).rutina_ejercicios.create({
-    data: { id_rutina: rutinaB.id_rutina, id_ejercicio: sent_pc, series: 3, repeticiones: 10, tempo: '3-1-2', comentarios: 'Baja controlado' },
-  });
-  // Rutina C: Tirón + Core (Remo con silla + Plancha 20s)
-  await (prisma as any).rutina_ejercicios.create({
-    data: { id_rutina: rutinaC.id_rutina, id_ejercicio: remo_silla, series: 3, repeticiones: 8, tempo: '2-1-2', comentarios: 'Mantén el cuerpo recto' },
-  });
-  await (prisma as any).rutina_ejercicios.create({
-    data: { id_rutina: rutinaC.id_rutina, id_ejercicio: plancha_20, series: 3, repeticiones: 1, tempo: null, comentarios: '20 segundos por serie' },
-  });
+  for (const n of nivelesAFomentar) {
+    for (const f of fasesAFomentar) {
+      for (const dia of diasSemana) {
+        const r = await (prisma as any).rutinas.create({
+          data: { 
+            nombre: `Nivel ${n} - Fase ${f} - ${dia}`, 
+            tipo: 'fija', 
+            nivel_minimo: n 
+          },
+        });
 
-  console.log('✅ Rutinas A/B/C del Nivel 1 Fase 1 creadas');
+        // ─── 6. ASIGNAR EJERCICIOS A LAS RUTINAS SEGÚN NIVEL Y FASE ───
+        // Seleccionamos ejercicios que coincidan con nivel y fase
+        const ejerciciosCompatibles = ejercicios.filter(e => e.nivel_requerido === n && e.fase === f);
+        
+        // Si no hay específicos de nivel 2 fase 2, usamos de nivel 1 fase 2 como fallback para el seed
+        const ejerciciosAFijar = ejerciciosCompatibles.length > 0 
+          ? ejerciciosCompatibles 
+          : ejercicios.filter(e => e.nivel_requerido === 1 && e.fase === f);
+
+        for (const ej of ejerciciosAFijar) {
+          // Buscamos el id del ejercicio recién creado
+          const dbEj = await (prisma as any).ejercicios.findFirst({ where: { nombre: ej.nombre } });
+          if (dbEj) {
+            await (prisma as any).rutina_ejercicios.upsert({
+              where: {
+                id_rutina_id_ejercicio: {
+                  id_rutina: r.id_rutina,
+                  id_ejercicio: dbEj.id_ejercicio
+                }
+              },
+              update: {},
+              create: {
+                id_rutina: r.id_rutina,
+                id_ejercicio: dbEj.id_ejercicio,
+                series: 3,
+                repeticiones: 10,
+                tempo: '2-1-2'
+              }
+            });
+          }
+        }
+      }
+    }
+  }
+
+  console.log('✅ Rutinas Lunes-Viernes para Nivel 1 y 2 (Fase 1 y 2) creadas');
   console.log('🎉 Seeding completado exitosamente!');
 }
 

@@ -15,6 +15,8 @@ export class EjercicioRealizadoDto {
   id_ejercicio: number;
 
   // Cuántas repeticiones logró hacer en cada serie
-  // Ejemplo: Si hizo 3 series de 6 reps, aquí va "6"
   reps_realizadas: number;
+
+  // Cuántas series logró completar (máximo 4 según regla de negocio)
+  series_realizadas: number;
 }

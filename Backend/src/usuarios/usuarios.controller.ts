@@ -7,11 +7,15 @@ export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
   @Post()
-  crear(@Body() body: any) {
+  async crear(@Body() body: any) {
+    console.log('📝 Intento de registro:', body.email);
     if (!body.nombre || !body.email || !body.contrasena) {
+      console.warn('⚠️ Registro fallido: Faltan campos');
       throw new BadRequestException('Campos requeridos: nombre, email, contrasena');
     }
-    return this.usuariosService.crearUsuario(body);
+    const result = await this.usuariosService.crearUsuario(body);
+    console.log('✅ Usuario registrado con éxito:', result.email);
+    return result;
   }
 
   @Get()
@@ -24,12 +28,14 @@ export class UsuariosController {
     @Body() body: { email: string; contrasena: string },
     @Session() session: Record<string, any>,
   ) {
-    console.log('➡️ Intento de login:', body.email);
+    console.log('➡️ LOGIN: Intento para', body.email);
     const result = await this.usuariosService.login(body);
     
+    console.log('🔍 LOGIN: Resultado del servicio:', JSON.stringify(result));
+
     if (!result.usuario || !result.usuario.id_usuario) {
-      console.error('❌ Error: El servicio de login no devolvió un ID de usuario válido');
-      throw new BadRequestException('Error interno al procesar el login');
+      console.error('❌ LOGIN ERROR: El servicio no devolvió id_usuario válido. Objeto:', result);
+      throw new BadRequestException('Error interno: Datos de usuario incompletos');
     }
 
     session.usuario = {
@@ -38,33 +44,26 @@ export class UsuariosController {
       email: result.usuario.email,
     };
     
-    // Forzamos el guardado en Redis antes de responder
+    console.log('💾 LOGIN: Intentando guardar sesión para ID:', session.usuario.id_usuario);
+
     return new Promise((resolve, reject) => {
       session.save((err) => {
         if (err) {
-          console.error('❌ Error guardando sesión en Redis:', err);
-          return reject(new BadRequestException('Error al persistir la sesión'));
+          console.error('❌ LOGIN ERROR: Fallo al guardar en Redis:', err);
+          return reject(new BadRequestException('Error al persistir la sesión. Intente más tarde.'));
         }
-        console.log('✅ Sesión creada y guardada para ID:', session.usuario.id_usuario);
+        console.log('✅ LOGIN EXITOSO: Sesión guardada.');
         resolve(result);
       });
     });
   }
 
   @Get('dashboard')
-  obtenerDashboard(@Session() session: Record<string, any>) {
+  async obtenerDashboard(@Session() session: Record<string, any>) {
     if (!session.usuario) {
-      console.warn('⚠️ DASHBOARD: No se encontró sesión del usuario');
-      throw new UnauthorizedException('No hay sesión activa. Por favor, inicie sesión.');
+      throw new UnauthorizedException('No hay sesión activa');
     }
-
-    if (!session.usuario.id_usuario || isNaN(Number(session.usuario.id_usuario))) {
-      console.warn('⚠️ DASHBOARD: ID de usuario inválido en sesión:', session.usuario);
-      throw new UnauthorizedException('Sus datos de sesión son corruptos. Por favor, reingrese.');
-    }
-
-    const idUsuario = Number(session.usuario.id_usuario);
-    return this.usuariosService.obtenerDashboard(idUsuario);
+    return this.usuariosService.obtenerDashboard(Number(session.usuario.id_usuario));
   }
 
   @Get('check-session')

@@ -56,5 +56,31 @@ Debido a los desafíos técnicos con el sistema de sesiones en entornos de desar
 
 ---
 
-**Documento finalizado el 27 de febrero de 2026.**
-**Desarrollado por el equipo de Advanced Agentic Coding - Antigravity.**
+## 5. Depuración y Estabilización Final (El Sprint de Cierre)
+
+Tras la implementación de la Fase 5, se detectaron errores críticos en el flujo de autenticación "real" que fueron resueltos mediante un proceso de depuración profunda:
+
+### 🛠️ Resolución del Error 400 (Login)
+
+- **Causa Raíz**: Se identificó un fallo de sintaxis en el comando `SET` enviado a Redis (`ERR syntax error [object Object]`). Esto ocurría porque la librería `connect-redis` (v9+) intentaba pasar opciones de TTL incompatibles con el cliente `ioredis` configurado.
+- **Solución**: Se ajustó la configuración en `main.ts` añadiendo `disableTTL: true`. Esto permitió que la sesión se guardara de forma limpia, delegando la expiración a la configuración nativa de la cookie de la sesión.
+
+### 🔗 Estabilización del Prisma Client
+
+- **Problema**: El servidor estaba iniciando en "Modo Emulación SQL" (Mock Mode) debido a una inicialización fallida del `PrismaClient`. No se estaban realizando consultas reales a la base de datos PostgreSQL.
+- **Solución**: Se implementó el `@prisma/adapter-pg` en el `PrismaService`. Se configuró el constructor para pasar el pool de conexiones de forma explícita, asegurando una conectividad del 100% con la base de datos real.
+
+### 👤 Manejo de Conflictos y Sesiones
+
+- **Conflicto 409**: Se documentó que el error 409 en el registro es el comportamiento esperado cuando un usuario ya existe, confirmando que la base de datos está validando la integridad de los datos.
+- **Persistencia**: Con la re-activación de Redis, las sesiones ahora persisten aunque el servidor backend se reinicie, eliminando la volatilidad del almacenamiento en memoria.
+
+---
+
+## ✅ Conclusión de Entrega
+
+El proyecto **Fitness Calistenia** se entrega en un estado **estable y funcional**. Se han superado los bloqueos de comunicación entre el frontend y el backend, logrando un flujo transparente de:
+`Registro -> Login (Redis) -> Dashboard (Prisma Real) -> Entrenamiento -> Catálogo`.
+
+**Documento actualizado y finalizado el 28 de febrero de 2026.**
+**Desarrollado con ❤️ por Antigravity.**

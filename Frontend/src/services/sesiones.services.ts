@@ -9,7 +9,7 @@ export const sesionesService = {
   },
 
   // 📝 Registrar un nuevo entrenamiento
-  registrarEntrenamiento: async (id_rutina: number, ejercicios: { id_ejercicio: number, reps_realizadas: number }[]): Promise<{ xpGanada: number }> => {
+  registrarEntrenamiento: async (id_rutina: number, ejercicios: { id_ejercicio: number, reps_realizadas: number, series_realizadas: number }[]): Promise<{ xpGanada: number }> => {
     const res = await api.post('/sesiones/registrar', {
       id_rutina,
       ejercicios

@@ -56,6 +56,10 @@ export class UsuariosService {
           xp_actual: 0,
         },
       });
+      
+      // Asignar rutinas iniciales automáticamente
+      await this.rutinasService.asignarRutinasPorNivelYFase(usuario.id_usuario, 1, 1);
+      console.log(`✅ Rutinas iniciales asignadas al usuario ${usuario.id_usuario}`);
     } catch (error) {
       console.error('Error al crear perfil físico:', error);
       // No lanzamos error aquí para que al menos el usuario esté creado, 
@@ -102,21 +106,44 @@ export class UsuariosService {
     }
 
     const perfil = await this.perfilService.obtenerPorUsuario(idUsuario);
-    const rutinas = await this.rutinasService.obtenerRutinasUsuario(idUsuario);
+    let rutinas = await this.rutinasService.obtenerRutinasUsuario(idUsuario);
 
-    const progreso = await (this.prisma as any).maestria_ejercicios.findMany({
-      where: { id_usuario: idUsuario },
-      include: { ejercicio: true },
+    // Salvaguarda: Si no tiene rutinas, asignamos las de nivel actual
+    if (!rutinas || rutinas.length === 0) {
+      try {
+        console.log(`⚠️ Usuario ${idUsuario} sin rutinas. Asignando automáticamente para Nivel ${perfil?.nivel_actual || 1}...`);
+        await this.rutinasService.asignarRutinasPorNivelYFase(idUsuario, perfil?.nivel_actual || 1, 1);
+        rutinas = await this.rutinasService.obtenerRutinasUsuario(idUsuario);
+      } catch (e) {
+        console.error('❌ Fallo al asignar rutinas automáticas:', e.message);
+        rutinas = []; // No rompemos el dashboard si falla la asignación
+      }
+    }
+
+    // Obtener sesiones de las últimas 24 horas para marcar completados hoy
+    const hace24Horas = new Date();
+    hace24Horas.setHours(hace24Horas.getHours() - 24);
+
+    const sesionesHoy = await (this.prisma as any).sesiones_entrenamiento.findMany({
+      where: {
+        id_usuario: idUsuario,
+        fecha: { gte: hace24Horas },
+        completada: true,
+      },
+      select: { id_rutina: true },
     });
 
     return {
       perfil: {
         nivel: perfil?.nivel_actual || 1,
+        fase: perfil?.fase_actual || 1,
+        semana: perfil?.semana_actual || 1,
         xp: perfil?.xp_actual || 0,
         edad: perfil?.edad,
         peso: perfil?.peso,
       },
       rutinas,
+      sesionesHoy: sesionesHoy.map((s: any) => s.id_rutina),
       progreso: (progreso || []).map((p: any) => ({
         ejercicio: p.ejercicio?.nombre || 'Ejercicio',
         mejor_record: p.mejor_record,
