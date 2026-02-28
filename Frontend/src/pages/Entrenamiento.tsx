@@ -1,41 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { sesionesService } from '../services/sesiones.services';
 import Boton from '../components/Boton';
 import Header from '../components/Header';
+import type { Rutina } from '../types';
 
-const Entrenamiento: React.FC = () => {
-  const [rutinas, setRutinas] = useState<any[]>([]);
-  const [rutinaSeleccionada, setRutinaSeleccionada] = useState<any>(null);
+const Entrenamiento: FC = () => {
+  const [rutinas, setRutinas] = useState<Rutina[]>([]);
+  const [rutinaSeleccionada, setRutinaSeleccionada] = useState<Rutina | null>(null);
   const [resultados, setResultados] = useState<Record<number, number>>({});
   const [mensaje, setMensaje] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
-    const MOCK_RUTINAS = [
-      { 
-        id_rutina: 1, 
-        nombre: 'Nivel 1 - Fase 1 - Rutina A',
-        rutina_ejercicios: [
-          { id_ejercicio: 1, ejercicio: { nombre: 'Flexiones de rodillas' } },
-          { id_ejercicio: 4, ejercicio: { nombre: 'Plancha 20s' } }
-        ]
-      },
-      { 
-        id_rutina: 2, 
-        nombre: 'Nivel 1 - Fase 1 - Rutina B',
-        rutina_ejercicios: [
-          { id_ejercicio: 2, ejercicio: { nombre: 'Sentadilla con peso corporal' } }
-        ]
+    const loadRutinas = async () => {
+      try {
+        const data = await sesionesService.getDashboardData();
+        setRutinas(data.rutinas || []);
+      } catch (err) {
+        console.error("Error cargando rutinas:", err);
       }
-    ];
-    setRutinas(MOCK_RUTINAS);
+    };
+    loadRutinas();
   }, []);
 
-  const seleccionarRutina = (r: any) => {
+  const seleccionarRutina = (r: Rutina) => {
     setRutinaSeleccionada(r);
     const initial: Record<number, number> = {};
-    r.rutina_ejercicios.forEach((re: any) => {
+    r.rutina_ejercicios?.forEach((re) => {
       initial[re.id_ejercicio] = 0;
     });
     setResultados(initial);
@@ -52,10 +44,11 @@ const Entrenamiento: React.FC = () => {
         reps_realizadas: reps
       }));
 
+      if (!rutinaSeleccionada) return;
       const res = await sesionesService.registrarEntrenamiento(rutinaSeleccionada.id_rutina, ejerciciosParaEnviar);
       setMensaje(`Éxito: Ganaste ${res.xpGanada} XP.`);
       setTimeout(() => navigate('/dashboard'), 2000);
-    } catch (error) {
+    } catch {
       setMensaje("Error al guardar");
     }
   };
@@ -69,7 +62,7 @@ const Entrenamiento: React.FC = () => {
           {rutinas.map(r => (
             <div key={r.id_rutina} className="glass stat-card" style={{ cursor: 'pointer', padding: '2rem' }} onClick={() => seleccionarRutina(r)}>
               <h3 style={{ color: 'var(--volt-yellow)' }}>{r.nombre}</h3>
-              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{r.rutina_ejercicios.length} Ejercicios</p>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>{r.rutina_ejercicios?.length || 0} Ejercicios</p>
               <Boton style={{ marginTop: '1rem' }}>COMENZAR</Boton>
             </div>
           ))}
@@ -88,7 +81,7 @@ const Entrenamiento: React.FC = () => {
       </header>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        {rutinaSeleccionada.rutina_ejercicios.map((re: any) => (
+        {rutinaSeleccionada.rutina_ejercicios?.map((re) => (
           <div key={re.id_ejercicio} className="glass" style={{ padding: '1.5rem', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h4 style={{ margin: 0 }}>{re.ejercicio.nombre}</h4>

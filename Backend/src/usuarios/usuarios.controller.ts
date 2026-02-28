@@ -33,7 +33,7 @@ export class UsuariosController {
     }
 
     session.usuario = {
-      id: Number(result.usuario.id_usuario),
+      id_usuario: Number(result.usuario.id_usuario),
       nombre: result.usuario.nombre,
       email: result.usuario.email,
     };
@@ -45,7 +45,7 @@ export class UsuariosController {
           console.error('❌ Error guardando sesión en Redis:', err);
           return reject(new BadRequestException('Error al persistir la sesión'));
         }
-        console.log('✅ Sesión creada y guardada para ID:', session.usuario.id);
+        console.log('✅ Sesión creada y guardada para ID:', session.usuario.id_usuario);
         resolve(result);
       });
     });
@@ -58,18 +58,18 @@ export class UsuariosController {
       throw new UnauthorizedException('No hay sesión activa. Por favor, inicie sesión.');
     }
 
-    if (!session.usuario.id || isNaN(Number(session.usuario.id))) {
+    if (!session.usuario.id_usuario || isNaN(Number(session.usuario.id_usuario))) {
       console.warn('⚠️ DASHBOARD: ID de usuario inválido en sesión:', session.usuario);
       throw new UnauthorizedException('Sus datos de sesión son corruptos. Por favor, reingrese.');
     }
 
-    const idUsuario = Number(session.usuario.id);
+    const idUsuario = Number(session.usuario.id_usuario);
     return this.usuariosService.obtenerDashboard(idUsuario);
   }
 
   @Get('check-session')
   verificarSesion(@Session() session: Record<string, any>) {
-    if (!session.usuario || !session.usuario.id) {
+    if (!session.usuario || !session.usuario.id_usuario) {
       return { autenticado: false };
     }
     return { autenticado: true, usuario: session.usuario };

@@ -1,15 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, type FC } from 'react';
 import Header from '../components/Header';
 import { api } from '../services/api';
+import type { Ejercicio } from '../types';
 
-const MOCK_EJERCICIOS = [
-  { id_ejercicio: 1, nombre: 'Flexiones de rodillas', nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Flexiones con apoyo en rodillas.', grupo: { nombre: 'Empuje' } },
-  { id_ejercicio: 2, nombre: 'Sentadilla básica', nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Sentadilla con peso corporal.', grupo: { nombre: 'Piernas' } },
-  { id_ejercicio: 3, nombre: 'Remo horizontal silla', nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Tirón usando una silla.', grupo: { nombre: 'Tirón' } }
+const MOCK_EJERCICIOS: Ejercicio[] = [
+  { id_ejercicio: 1, nombre: 'Flexiones de rodillas', nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Flexiones con apoyo en rodillas.', grupo: { id_grupo: 1, nombre: 'Empuje' } },
+  { id_ejercicio: 2, nombre: 'Sentadilla básica', nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Sentadilla con peso corporal.', grupo: { id_grupo: 2, nombre: 'Piernas' } },
+  { id_ejercicio: 3, nombre: 'Remo horizontal silla', nivel_requerido: 1, fase: 1, dificultad: 'facil', descripcion: 'Tirón usando una silla.', grupo: { id_grupo: 3, nombre: 'Tirón' } }
 ];
 
-const Catalogo: React.FC = () => {
-  const [ejercicios, setEjercicios] = useState<any[]>([]);
+const Catalogo: FC = () => {
+  const [ejercicios, setEjercicios] = useState<Ejercicio[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtroGrupo, setFiltroGrupo] = useState('Todos');
 
@@ -18,7 +19,7 @@ const Catalogo: React.FC = () => {
       try {
         const res = await api.get('/ejercicios/todos');
         setEjercicios(res.data.length > 0 ? res.data : MOCK_EJERCICIOS);
-      } catch (e) {
+      } catch {
         console.warn('Usando Mock Data para Catálogo');
         setEjercicios(MOCK_EJERCICIOS);
       } finally {
@@ -52,7 +53,7 @@ const Catalogo: React.FC = () => {
           {grupos.map((g) => (
             <button
               key={g}
-              onClick={() => setFiltroGrupo(g)}
+              onClick={() => setFiltroGrupo(g || 'Todos')}
               className="glass"
               style={{
                 background: filtroGrupo === g ? 'var(--volt)' : 'rgba(255,255,255,0.05)',

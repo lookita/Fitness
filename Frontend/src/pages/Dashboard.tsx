@@ -1,35 +1,46 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { sesionesService } from '../services/sesiones.services';
 import { UsuariosService } from '../services/usuarios.services';
 import Boton from '../components/Boton';
 import Header from '../components/Header';
+import type { DashboardData } from '../types';
 
-// 🛠️ MOCK_DATA para prototipado premium
-const MOCK_DATA = {
-  perfil: { nivel: 1, xp: 500 },
-  rutinas: [
-    { id_rutina: 1, nombre: 'Explosión de Pecho (A)' },
-    { id_rutina: 2, nombre: 'Piernas de Acero (B)' },
-    { id_rutina: 3, nombre: 'Espalda y Core (C)' }
-  ],
-  progreso: [
-    { ejercicio: 'Flexiones de rodillas', mejor_record: 12, maestreado: true },
-    { ejercicio: 'Sentadilla básica', mejor_record: 15, maestreado: false },
-    { ejercicio: 'Plancha 20s', mejor_record: 20, maestreado: true }
-  ]
-};
-
-const Dashboard: React.FC = () => {
-  const [data] = useState<any>(MOCK_DATA); 
-  const loading = false;
-  const error = '';
+const Dashboard: FC = () => {
+  const [data, setData] = useState<DashboardData | null>(null); 
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const dashboardData = await sesionesService.getDashboardData();
+        if (dashboardData.error) {
+          navigate('/login');
+          return;
+        }
+        setData(dashboardData);
+      } catch (err: any) {
+        console.error("Error cargando dashboard:", err);
+        if (err.response?.status === 401) {
+          navigate('/login');
+        } else {
+          setError('Error de conexión con el servidor');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [navigate]);
 
   const handleLogout = async () => {
     try {
       await UsuariosService.logout();
-    } catch (err) {
-      console.error("Error al cerrar sesión:", err);
+    } catch {
+ // Changed 'err' to '_error' to fix lint error for unused variable
+      console.error("Error al cerrar sesión:"); // Removed _error as it's not caught
     }
     navigate('/login');
   };
@@ -74,7 +85,7 @@ const Dashboard: React.FC = () => {
         <section className="glass stat-card">
           <h3 className="text-gradient">MIS RUTINAS</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-            {data.rutinas?.map((rutina: any) => (
+            {data.rutinas?.map((rutina) => (
               <div key={rutina.id_rutina} className="glass" style={{ padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 600 }}>{rutina.nombre}</span>
                 <Boton onClick={() => navigate('/entrenamiento')} style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.8rem' }}>Entrenar</Boton>
@@ -93,7 +104,7 @@ const Dashboard: React.FC = () => {
         <section className="glass stat-card">
           <h3 className="text-gradient">MI MAESTRÍA</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', marginTop: '1rem' }}>
-            {data.progreso.map((p: any, idx: number) => (
+            {data.progreso.map((p, idx: number) => (
               <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
                 <span style={{ fontSize: '0.9rem' }}>{p.ejercicio}</span>
                 <div style={{ textAlign: 'right' }}>

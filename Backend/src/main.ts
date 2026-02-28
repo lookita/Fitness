@@ -28,21 +28,23 @@ async function bootstrap() {
 
   const redisStore = new RedisStore({
     client: redisClient,
-    prefix: 'fitness_app_session:',
+    prefix: "fitness_sess:",
+    disableTTL: true, // Evita enviar el tercer argumento conflictivo a SET
   });
 
   // 3. Configuración de la Sesión (DEBE IR ANTES DE app.listen)
   app.use(
     session({
-      name: 'fitness_sid', // Nombre personalizado para la cookie
+      name: 'fitness_sid', 
       store: redisStore,
       secret: process.env.SESSION_SECRET || 'fallback_inseguro_cambiar',
       resave: false,
       saveUninitialized: false,
+      unset: 'destroy', // Elimina la sesión de Redis al cerrar
       cookie: {
         httpOnly: true,
-        secure: false, // Forzar false en local para compatibilidad total HTTP
-        sameSite: 'lax', // Permite que la cookie se envíe en navegación local
+        secure: false, 
+        sameSite: 'lax',
         maxAge: 1000 * 60 * 60 * 24, // 24 horas
       },
     }),

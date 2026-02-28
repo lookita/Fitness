@@ -18,9 +18,10 @@ export default function Login() {
     try {
       await UsuariosService.login({ email, contrasena })
       navigate('/dashboard')
-    } catch (err) {
-      setError('No se encontro el usuario y/o la contraseña')
-      console.error(err)
+    } catch (err: any) {
+      const serverMsg = err.response?.data?.message || 'No se encontro el usuario y/o la contraseña';
+      setError(serverMsg);
+      console.error('ERROR LOGIN:', err);
     }
   }
 

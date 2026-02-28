@@ -1,22 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, type FC } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { sesionesService } from '../services/sesiones.services';
 import Boton from '../components/Boton';
+import type { Rutina } from '../types';
 
-const MOCK_RUTINAS = [
+const MOCK_RUTINAS: Rutina[] = [
   { 
     id_rutina: 1, 
     nombre: 'Nivel 1 - Fase 1 - Rutina A', 
+    nivel_objetivo: 1,
+    fase_objetivo: 1,
     rutina_ejercicios: [
-      { id_ejercicio: 1, ejercicio: { nombre: 'Flexiones de rodillas' }, series: 3, repeticiones: 8 },
-      { id_ejercicio: 3, ejercicio: { nombre: 'Plancha 20s' }, series: 3, repeticiones: 1 }
+      { id_ejercicio: 1, ejercicio: { id_ejercicio: 1, nombre: 'Flexiones de rodillas', dificultad: 'facil', nivel_requerido: 1, fase: 1 }, series: 3, repeticiones: 8 },
+      { id_ejercicio: 3, ejercicio: { id_ejercicio: 3, nombre: 'Plancha 20s', dificultad: 'facil', nivel_requerido: 1, fase: 1 }, series: 3, repeticiones: 1 }
     ] 
   }
 ];
 
-const Rutinas: React.FC = () => {
-  const [rutinas, setRutinas] = useState<any[]>([]);
+const Rutinas: FC = () => {
+  const [rutinas, setRutinas] = useState<Rutina[]>([]);
   const [loading, setLoading] = useState(true);
   const [rutinaAbierta, setRutinaAbierta] = useState<number | null>(null);
   const navigate = useNavigate();
@@ -26,8 +29,7 @@ const Rutinas: React.FC = () => {
       try {
         const dashData = await sesionesService.getDashboardData();
         setRutinas(dashData.rutinas && dashData.rutinas.length > 0 ? dashData.rutinas : MOCK_RUTINAS);
-      } catch (e) {
-        console.warn('Usando Mock Data para Rutinas');
+      } catch {
         setRutinas(MOCK_RUTINAS);
       } finally {
         setLoading(false);
@@ -70,7 +72,7 @@ const Rutinas: React.FC = () => {
                 {rutinaAbierta === rutina.id_rutina && (
                   <div className="fade-in" style={{ padding: '0 1.5rem 1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1.5rem' }}>
-                      {rutina.rutina_ejercicios?.map((re: any) => (
+                      {rutina.rutina_ejercicios?.map((re) => (
                         <div key={re.id_ejercicio} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div>
                             <p style={{ margin: 0, fontWeight: 600 }}>{re.ejercicio?.nombre}</p>
